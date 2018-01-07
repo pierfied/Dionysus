@@ -15,7 +15,7 @@ class Autoencoder:
                 self.x = x
 
             if code is None:
-                self.encode = Encoder(data_len, hidden_size, code_len, x).encode
+                self.encode = Encoder(data_len, hidden_size, code_len, self.x).encode
             else:
                 self.encode = code
 
@@ -44,15 +44,20 @@ class Encoder:
 
     @define_scope
     def encode(self):
+        W0 = tf.Variable(tf.truncated_normal([self.data_len,self.data_len]))
+        b0 = tf.Variable(tf.truncated_normal([self.data_len]))
+
+        y0 = tf.nn.sigmoid(tf.matmul(self.x,W0) + b0)
+
         W1 = tf.Variable(tf.truncated_normal([self.data_len, self.hidden_size]))
         b1 = tf.Variable(tf.truncated_normal([self.hidden_size]))
 
-        y1 = tf.nn.relu(tf.matmul(self.x,W1) + b1)
+        y1 = tf.nn.sigmoid(tf.matmul(y0,W1) + b1)
 
         W2 = tf.Variable(tf.truncated_normal([self.hidden_size, self.code_len]))
         b2 = tf.Variable(tf.truncated_normal([self.code_len]))
 
-        code = tf.matmul(y1,W2) + b2
+        code = tf.nn.sigmoid(tf.matmul(y1,W2) + b2)
 
         return code
 
@@ -72,11 +77,16 @@ class Decoder:
         W1 = tf.Variable(tf.truncated_normal([self.code_len, self.hidden_size]))
         b1 = tf.Variable(tf.truncated_normal([self.hidden_size]))
 
-        y1 = tf.nn.relu(tf.matmul(self.code, W1) + b1)
+        y1 = tf.nn.sigmoid(tf.matmul(self.code, W1) + b1)
 
         W2 = tf.Variable(tf.truncated_normal([self.hidden_size, self.data_len]))
         b2 = tf.Variable(tf.truncated_normal([self.data_len]))
 
-        code = tf.matmul(y1, W2) + b2
+        y2 = tf.nn.sigmoid(tf.matmul(y1,W2) + b2)
 
-        return code
+        W3 = tf.Variable(tf.truncated_normal([self.data_len,self.data_len]))
+        b3 = tf.Variable(tf.truncated_normal([self.data_len]))
+
+        y3 = tf.sigmoid(y2,W3) + b3
+
+        return y3

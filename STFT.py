@@ -21,8 +21,9 @@ class STFT:
 
     @define_scope
     def stft(self):
-        return signal.stft(self.sig,self.fft_len,self.fft_len//2)
+        return signal.stft(self.sig,self.fft_len,self.fft_len//2,window_fn=signal.hamming_window)
     
     @define_scope
     def istft(self):
-        return signal.inverse_stft(self.ft,self.fft_len,self.fft_len//2)
+        return signal.inverse_stft(self.ft,self.fft_len,self.fft_len//2,
+                                   window_fn=signal.hamming_window)
