@@ -44,7 +44,7 @@ class WavAnalysis:
         norm_phase_diffs = np.nan_to_num(x/(x+y))
         norm_mags = np.nan_to_num(x/norm_phase_diffs)
 
-        mags = norm_mags * self.mag_norm_coeffs
+        mags = np.abs(norm_mags * self.mag_norm_coeffs)
         phases = (2*pi*norm_phase_diffs) - pi
 
         z = mags * np.exp(phases*1j)

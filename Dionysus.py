@@ -12,7 +12,7 @@ hidden_size = 256
 code_len = 128
 batch_size = 256
 
-song = WavAnalysis(expanduser('~/Downloads/veldt.wav'),fft_len)
+song = WavAnalysis(expanduser('~/Downloads/hybrid.wav'),fft_len)
 data = song.analyze()
 
 x = tf.placeholder(tf.float32)
@@ -21,7 +21,7 @@ optimizer = ae.optimizer
 loss = ae.loss
 decoder = ae.decode
 
-num_steps = 100001
+num_steps = 200001
 with tf.Session() as sess:
     tf.global_variables_initializer().run()
 

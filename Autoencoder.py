@@ -87,6 +87,6 @@ class Decoder:
         W3 = tf.Variable(tf.truncated_normal([self.data_len,self.data_len]))
         b3 = tf.Variable(tf.truncated_normal([self.data_len]))
 
-        y3 = tf.sigmoid(y2,W3) + b3
+        y3 = tf.matmul(y2,W3) + b3
 
         return y3
