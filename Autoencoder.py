@@ -15,11 +15,15 @@ class Autoencoder:
                 self.x = x
 
             if code is None:
-                self.encode = Encoder(data_len, hidden_size, code_len, self.x).encode
+                # self.encode = tf.Variable([],dtype=tf.float32)
+                # self.encode = tf.assign(self.encode,Encoder(data_len, hidden_size, code_len,
+                #                                       self.x).encode,validate_shape=False)
+                self.encode = Encoder(data_len, hidden_size, code_len,self.x).encode
             else:
                 self.encode = code
 
-            self.decode = Decoder(data_len, hidden_size, code_len, self.encode).decode
+            self.decoder = Decoder(data_len, hidden_size, code_len, self.encode)
+            self.decode = self.decoder.decode
 
             self.loss
             self.optimizer
@@ -58,6 +62,7 @@ class Encoder:
         b2 = tf.Variable(tf.truncated_normal([self.code_len]))
 
         code = tf.nn.sigmoid(tf.matmul(y1,W2) + b2)
+        # code = tf.matmul(y1,W2) + b2
 
         return code
 

@@ -1,26 +1,24 @@
+import numpy as np
 import tensorflow as tf
 from tensorflow.contrib import rnn
 from AutoScope import define_scope
 
 class StochasticMLGRU:
-    def __init__(self,num_layers,hidden_size,x=None,init_state=None):
+    def __init__(self,num_layers,hidden_size,feature_len,x,y=None):
         self.num_layers = num_layers
         self.hidden_size = hidden_size
+        self.feature_len = feature_len
 
         with tf.name_scope('StochasticMLGRU'):
-            if x is None:
-                self.x = tf.placeholder(tf.float32)
+            self.x = x
+
+            if y is None:
+                self.y = tf.placeholder(tf.float32)
             else:
-                self.x = x
+                self.y = y
 
             self.batch_size = tf.shape(self.x)[0]
             self.seq_len = tf.shape(self.x)[1]
-            self.feature_len = tf.shape(self.x)[2]
-
-            if init_state is None:
-                self.init_state = tf.placeholder(tf.float32)
-            else:
-                self.init_state = init_state
 
             self.predict_pdf
             self.sample
@@ -28,9 +26,18 @@ class StochasticMLGRU:
 
     @define_scope
     def predict_pdf(self):
-        GRU = rnn.MultiRNNCell([rnn.GRUCell(self.hidden_size) for i in range(self.num_layers)])
+        self.GRU = rnn.MultiRNNCell([rnn.GRUCell(self.hidden_size) for i in range(self.num_layers)])
 
-        GRU_out,self.final_state = tf.nn.dynamic_rnn(GRU,self.x,initial_state=self.init_state)
+        self.init_state = self.GRU.zero_state(self.batch_size,tf.float32)
+
+        GRU_out,self.final_state = tf.nn.dynamic_rnn(self.GRU,self.x,initial_state=self.init_state)
+
+        GRU_out = tf.reshape(GRU_out,[-1,self.hidden_size])
+
+        W = tf.Variable(tf.truncated_normal([self.hidden_size,self.hidden_size]))
+        b = tf.Variable(tf.truncated_normal([self.hidden_size]))
+
+        GRU_out = tf.nn.elu(tf.matmul(GRU_out,W) + b)
 
         W_mu = tf.Variable(tf.truncated_normal([self.hidden_size,self.feature_len]))
         b_mu = tf.Variable(tf.truncated_normal([self.feature_len]))
@@ -40,7 +47,15 @@ class StochasticMLGRU:
         W_sigma = tf.Variable(tf.truncated_normal([self.hidden_size, self.feature_len]))
         b_sigma = tf.Variable(tf.truncated_normal([self.feature_len]))
 
-        sigma = tf.exp(tf.matmul(GRU_out,W_sigma) + b_sigma)
+        sigma = tf.sigmoid(tf.matmul(GRU_out,W_sigma) + b_sigma)
+
+        mu = tf.reshape(mu,[self.batch_size,-1,self.feature_len])
+        sigma = tf.reshape(sigma,[self.batch_size,-1,self.feature_len])
+
+        self.mu = mu
+        self.sigma = sigma
+
+        self.samps = mu + tf.random_normal(tf.shape(mu))*sigma
 
         dists = tf.distributions.Normal(mu,sigma)
 
@@ -48,11 +63,11 @@ class StochasticMLGRU:
 
     @define_scope
     def sample(self):
-        return self.predict_pdf.sample()
+        return tf.clip_by_value(self.predict_pdf.sample(),0,1)
 
     @define_scope
     def loss(self):
-        probs = tf.clip_by_value(self.predict_pdf.prob(),1e-6,1e6)
+        probs = tf.clip_by_value(self.predict_pdf.prob(self.y),1e-6,1e6)
 
         return tf.reduce_mean(-tf.log(probs))
 
