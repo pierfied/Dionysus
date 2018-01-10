@@ -16,7 +16,7 @@ batch_size = 256
 rnn_batch_size = 16
 rnn_seq_len = 16
 
-song = WavAnalysis(expanduser('~/Downloads/hybrid.wav'),fft_len)
+song = WavAnalysis(expanduser('~/Downloads/veldt.wav'),fft_len)
 data = song.analyze()
 
 x = tf.placeholder(tf.float32)
@@ -30,7 +30,7 @@ num_layers = 3
 
 rnn_x = tf.placeholder(tf.float32,shape=[None,None,code_len])
 rnn_y = tf.placeholder(tf.float32,shape=[None,None,code_len])
-rnn = StochasticMLGRU(num_layers,hidden_size,code_len,rnn_x,rnn_y)
+rnn = StochasticMLGRU(num_layers,1024,code_len,rnn_x,rnn_y)
 rnn_init_state = rnn.init_state
 rnn_final_state = rnn.final_state
 rnn_optimizer = rnn.optimizer
@@ -44,8 +44,6 @@ sess = tf.Session()
 writer = tf.summary.FileWriter('/tmp/tf', sess.graph)
 ae_summary = tf.summary.scalar('ae_loss',ae_loss)
 rnn_summary = tf.summary.scalar('rnn_loss',rnn_loss)
-
-num_steps = 200001
 
 tf.global_variables_initializer().run(session=sess)
 
@@ -88,11 +86,11 @@ def train_rnn(num_steps):
 
         return batch
 
-    def gen_samp(fname,seed,num_samps):
+    def gen_samp(fname,seed,num_samps,temp=1.0):
         s = sess.run(rnn.GRU.zero_state(1,tf.float32))
 
         samp,s = sess.run([samples,rnn_final_state],feed_dict={rnn_x:seed[np.newaxis,:,:],
-                                                                rnn_init_state:s})
+                                                                rnn_init_state:s,rnn.temp:temp})
 
         samps = np.zeros((num_samps,code_len))
 
@@ -103,7 +101,7 @@ def train_rnn(num_steps):
 
             samp,s = sess.run([samples,rnn_final_state],feed_dict={rnn_x:samp[np.newaxis,
                                                                               np.newaxis,:],
-                                                                   rnn_init_state:s})
+                                                                   rnn_init_state:s,rnn.temp:temp})
 
         samp_fft = sess.run(decoder,feed_dict={code:samps})
 
@@ -113,25 +111,27 @@ def train_rnn(num_steps):
     for i in range(num_steps):
         batch = gen_batch(i)
 
-        _,l,s,rnn_sum,a,b = sess.run([rnn_optimizer,rnn_loss,rnn_final_state,rnn_summary,rnn.mu,
+        _,l,s,rnn_sum,a = sess.run([rnn_optimizer,rnn_loss,rnn_final_state,rnn_summary,
                                       rnn.sigma],
                                      feed_dict={
             rnn_x:batch[:,:-1,:],rnn_y:batch[:,1:,:],rnn_init_state:s})
 
-        if i % 100 == 0:
+        if i % 1000 == 0:
             print(i,' ',l)
 
-            b = b[np.isfinite(b)]
-            print(b.mean())
-            print(b.min())
-            print(b.max())
+            print(a.mean())
+            print(a.max())
 
             writer.add_summary(rnn_sum,i)
             writer.flush()
 
         if i % 10000 == 0:
-            fname = 'gen_test/samp_%d.wav' % i
-            gen_samp(fname,codes[:128,:],128)
+            fname = 'gen_test/samp_%d_1.wav' % i
+            gen_samp(fname,codes[:128,:],256)
+            fname = 'gen_test/samp_%d_0.75.wav' % i
+            gen_samp(fname,codes[:128,:],256,0.75)
+            fname = 'gen_test/samp_%d_0.5.wav' % i
+            gen_samp(fname,codes[:128,:],256,0.5)
 
             # saver.save(sess, './model/model.ckpt')
 
